@@ -1,0 +1,90 @@
+# ==============================================================================
+# MANIFIESTO: 04-mongo-stack.yaml
+# DESCRIPCIÓN: Deployment de MongoDB con persistencia PVC y Service ClusterIP
+# ==============================================================================
+
+# 1. DEPLOYMENT DE MONGODB
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  namespace: practica-s11
+  labels:
+    app: mongodb
+    tier: database
+    session: s11
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # Recomendado para bases de datos con volúmenes ReadWriteOnce
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+        tier: database
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:6.0
+          args:
+            - "--bind_ip_all"
+          ports:
+            - containerPort: 27017
+              name: mongo-port
+          env:
+            # Inyección de credenciales oficiales de MongoDB desde el Secret
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+            - name: MONGO_INITDB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-configmap
+                  key: DB_NAME
+          volumeMounts:
+            # Montaje del volumen persistente en la ruta estándar de MongoDB
+            - name: mongo-storage
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: mongo-storage
+          persistentVolumeClaim:
+            claimName: mongo-pvc
+---
+# 2. SERVICIO CLUSTERIP PARA MONGODB
+# Exposición exclusiva en la red interna del clúster (inaccesible desde el exterior)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+  namespace: practica-s11
+  labels:
+    app: mongodb
+    tier: database
+    session: s11
+spec:
+  type: ClusterIP
+  selector:
+    app: mongodb
+  ports:
+    - name: mongo-port
+      protocol: TCP
+      port: 27017
+      targetPort: 27017
+

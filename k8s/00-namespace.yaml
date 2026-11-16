@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: practica-s11
+  labels:
+    name: practica-s11
+    environment: practice
+    session: s11
+    course: orquestadores-y-automatizacion
+
